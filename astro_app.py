@@ -5,8 +5,8 @@ import lightkurve as lk
 st.set_page_config(page_title="Astro App", layout="wide")
 st.header("🔭 Astro App")
 
-col1, col2 = st.columns([1, 4])
-col3, col4 = st.columns([1, 4])
+col1, col2 = st.columns([1, 5])
+col3, col4 = st.columns([1, 5])
 
 
 with col1:

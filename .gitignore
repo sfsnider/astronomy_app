@@ -1,0 +1,58 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+.code-workspace
+
+# macOS system files
+.DS_Store
+
+# Logs
+*.log
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Test outputs and temp files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.~*
+
+# Cache
+.cache/
+.mypy_cache/
+.pytest_cache/
+__pypackages__/
+
+# Streamlit static cache
+.streamlit/
+
+# CSV data
+data/*.csv
+
+# Secrets or config (if applicable)
+.env
+*.env
+*.secret

@@ -4,7 +4,6 @@ import lightkurve as lk
 import numpy as np
 import time
 import re
-from lightkurve import LightCurveCollection
 
 st.set_page_config(page_title="Astro App", layout="wide")
 st.header("🔭 Astro App")
@@ -31,15 +30,12 @@ with col1:
     st.subheader("Set TIC ID")
     TIC = st.text_input("TIC ID", "TIC 470710327")
 
-selected_sectors = []
-
 with col2:
     if TIC:
         try:
             available_data_all = get_available_data(TIC)
             if len(available_data_all) > 0:
                 df = available_data_all.table.to_pandas()
-
                 df["sector"] = df["mission"].str.extract(r"Sector (\d+)", expand=False).astype("Int64")
 
                 desired_columns = [
@@ -66,10 +62,13 @@ with col2:
                     selected_sectors = list(range(sector_range[0], sector_range[1] + 1))
                 else:
                     st.warning("⚠️ No valid sectors found.")
+                    selected_sectors = []
             else:
                 st.warning("⚠️ No data found for this TIC.")
+                selected_sectors = []
         except Exception as e:
             st.error(f"❌ Error fetching all-sector data: {e}")
+            selected_sectors = []
 
 with col3:
     st.subheader("Selected Sectors")
@@ -100,17 +99,20 @@ with col4:
             if len(filtered_result) > 0:
                 downloaded = download_with_retries(filtered_result)
 
+                # Handle different download types
+                from lightkurve import LightCurve, LightCurveCollection
+
                 if isinstance(downloaded, list):
-                    valid_curves = [lc for lc in downloaded if hasattr(lc, "flux")]
+                    valid_curves = [lc for lc in downloaded if isinstance(lc, LightCurve)]
                     if not valid_curves:
-                        raise ValueError("⚠️ No valid light curves were downloaded.")
+                        raise ValueError("❌ No valid light curves found in list.")
                     lightcurve = LightCurveCollection(valid_curves).stitch()
-                elif hasattr(downloaded, "stitch"):
+                elif isinstance(downloaded, LightCurveCollection):
                     lightcurve = downloaded.stitch()
-                elif hasattr(downloaded, "flux"):
+                elif isinstance(downloaded, LightCurve):
                     lightcurve = downloaded
                 else:
-                    raise ValueError("⚠️ Unexpected download result type.")
+                    raise TypeError(f"❌ Unexpected download result type: {type(downloaded).__name__}")
 
                 fig, ax = plt.subplots()
                 lightcurve.plot(ax=ax, linewidth=0, marker='.', color='midnightblue', alpha=0.5)
@@ -118,4 +120,4 @@ with col4:
             else:
                 st.warning("⚠️ No data found for the selected sector range.")
         except Exception as e:
-            st.error(f"❌ {str(e)}")
+            st.error(str(e))

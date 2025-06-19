@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Scott Snider <scottsnider@cogeco.ca>"]
 readme = "README.md"
-packages = [{ include = "astronomy_app" }]  # optional if you have a package folder
+#packages = [{ include = "astronomy_app" }]  # optional if you have a package folder
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"

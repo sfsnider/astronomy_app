@@ -39,7 +39,7 @@ with col2:
 
 
 with col3:
-    secNum = st.number_input("Sector Number", min_value=1, max_value=99, step=1)
+    secNum = st.number_input("Select Sector Number", min_value=1, max_value=99, step=1)
 
 with col4:
     # 📈 Sector-specific plot
@@ -50,7 +50,8 @@ with col4:
             try:
                 sector_data = lk.search_lightcurve(TIC, author='SPOC', sector=secNum)
                 if len(sector_data) > 0:
-                    lightcurve = sector_data.download()
+                    # Download all light curves for the specified TIC and sector
+                    lightcurve = sector_data.download_all()
 
                     fig, ax = plt.subplots()
                     lightcurve.plot(ax=ax, linewidth=0, marker='.', color='midnightblue', alpha=0.5)

@@ -1,123 +1,55 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import lightkurve as lk
-import numpy as np
-import time
-import re
 
 st.set_page_config(page_title="Astro App", layout="wide")
 st.header("🔭 Astro App")
 
-col1, col2 = st.columns([1, 5])
-col3, col4 = st.columns([1, 5])
+col1, col2 = st.columns([1, 4])
 
-@st.cache_data(show_spinner=False)
-def get_available_data(tic_id):
-    return lk.search_lightcurve(tic_id, author="SPOC")
-
-@st.cache_data(show_spinner=True)
-def download_with_retries(search_result, max_attempts=10, wait_seconds=1):
-    for attempt in range(1, max_attempts + 1):
-        try:
-            return search_result.download_all()
-        except Exception as e:
-            if attempt < max_attempts:
-                time.sleep(wait_seconds)
-            else:
-                raise RuntimeError(f"❌ Download failed after {max_attempts} attempts: {e}") from e
 
 with col1:
     st.subheader("Set TIC ID")
     TIC = st.text_input("TIC ID", "TIC 470710327")
+    secNum = st.number_input("Sector Number", min_value=1, max_value=99, step=1)
 
 with col2:
+    # 🔎 Show all-sector metadata
     if TIC:
         try:
-            available_data_all = get_available_data(TIC)
+            available_data_all = lk.search_lightcurve(TIC, author='SPOC')
             if len(available_data_all) > 0:
                 df = available_data_all.table.to_pandas()
-                df["sector"] = df["mission"].str.extract(r"Sector (\d+)", expand=False).astype("Int64")
 
+                # ✅ Keep only the existing desired columns
                 desired_columns = [
                     "target_name", "mission", "author", "year", "s_ra", "s_dec", "t_min",
-                    "t_max", "t_exptime", "description", "instrument_name", "sector"
+                    "t_max", "t_exptime", "description", "instrument_name"
                 ]
                 filtered_columns = [col for col in desired_columns if col in df.columns]
                 filtered_df = df[filtered_columns]
 
                 st.subheader("📋 Available SPOC Light Curve Data")
                 st.dataframe(filtered_df)
-
-                sectors = sorted(df["sector"].dropna().unique())
-                if sectors:
-                    min_sec = min(sectors)
-                    max_sec = max(sectors)
-                    sector_range = st.slider(
-                        "Select Sector Range",
-                        min_value=min_sec,
-                        max_value=max_sec,
-                        value=(min_sec, max_sec),
-                        step=1
-                    )
-                    selected_sectors = list(range(sector_range[0], sector_range[1] + 1))
-                else:
-                    st.warning("⚠️ No valid sectors found.")
-                    selected_sectors = []
             else:
                 st.warning("⚠️ No data found for this TIC.")
-                selected_sectors = []
         except Exception as e:
             st.error(f"❌ Error fetching all-sector data: {e}")
-            selected_sectors = []
 
-with col3:
-    st.subheader("Selected Sectors")
-    if TIC and selected_sectors:
-        st.write(selected_sectors)
-    elif TIC:
-        st.info("Select a valid TIC to load available sectors.")
+    # 📈 Sector-specific plot
+    with st.container():
+        st.subheader("📈 Light Curve Plot")
 
-with col4:
-    st.subheader("📈 Light Curve Plot")
+        if TIC and secNum:
+            try:
+                sector_data = lk.search_lightcurve(TIC, author='SPOC', sector=secNum)
+                if len(sector_data) > 0:
+                    lightcurve = sector_data.download()
 
-    if TIC and selected_sectors:
-        try:
-            search_result = get_available_data(TIC)
-            result_df = search_result.table.to_pandas()
-            result_df["sector"] = result_df["mission"].str.extract(r"Sector (\d+)", expand=False).astype("Int64")
-
-            target_df = result_df[result_df["sector"].isin(selected_sectors)]
-
-            filtered_result = lk.SearchResult([
-                res for res in search_result
-                if any(
-                    res.table["mission"] == row["mission"] and res.table["t_min"] == row["t_min"]
-                    for _, row in target_df.iterrows()
-                )
-            ])
-
-            if len(filtered_result) > 0:
-                downloaded = download_with_retries(filtered_result)
-
-                # Handle different download types
-                from lightkurve import LightCurve, LightCurveCollection
-
-                if isinstance(downloaded, list):
-                    valid_curves = [lc for lc in downloaded if isinstance(lc, LightCurve)]
-                    if not valid_curves:
-                        raise ValueError("❌ No valid light curves found in list.")
-                    lightcurve = LightCurveCollection(valid_curves).stitch()
-                elif isinstance(downloaded, LightCurveCollection):
-                    lightcurve = downloaded.stitch()
-                elif isinstance(downloaded, LightCurve):
-                    lightcurve = downloaded
+                    fig, ax = plt.subplots()
+                    lightcurve.plot(ax=ax, linewidth=0, marker='.', color='midnightblue', alpha=0.5)
+                    st.pyplot(fig)
                 else:
-                    raise TypeError(f"❌ Unexpected download result type: {type(downloaded).__name__}")
-
-                fig, ax = plt.subplots()
-                lightcurve.plot(ax=ax, linewidth=0, marker='.', color='midnightblue', alpha=0.5)
-                st.pyplot(fig)
-            else:
-                st.warning("⚠️ No data found for the selected sector range.")
-        except Exception as e:
-            st.error(str(e))
+                    st.warning("⚠️ No data found for that TIC/sector.")
+            except Exception as e:
+                st.error(f"❌ Error loading light curve: {e}")

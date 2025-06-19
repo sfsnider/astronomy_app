@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import lightkurve as lk
 import numpy as np
 import time
+import re
+from lightkurve import LightCurve, LightCurveCollection
 
 st.set_page_config(page_title="Astro App", layout="wide")
 st.header("🔭 Astro App")
@@ -36,6 +38,9 @@ with col2:
             if len(available_data_all) > 0:
                 df = available_data_all.table.to_pandas()
 
+                # ✅ Extract sector number from mission column
+                df["sector"] = df["mission"].str.extract(r"Sector (\d+)", expand=False).astype("Int64")
+
                 desired_columns = [
                     "target_name", "mission", "author", "year", "s_ra", "s_dec", "t_min",
                     "t_max", "t_exptime", "description", "instrument_name", "sector"
@@ -46,8 +51,7 @@ with col2:
                 st.subheader("📋 Available SPOC Light Curve Data")
                 st.dataframe(filtered_df)
 
-                # ✅ Extract sectors from result objects
-                sectors = sorted({res.sector for res in available_data_all if res.sector is not None})
+                sectors = sorted(df["sector"].dropna().unique())
                 if sectors:
                     min_sec = min(sectors)
                     max_sec = max(sectors)
@@ -81,11 +85,35 @@ with col4:
 
     if TIC and selected_sectors:
         try:
-            all_data = get_available_data(TIC)
-            selected_data = [res for res in all_data if res.sector in selected_sectors]
+            search_result = get_available_data(TIC)
+            result_df = search_result.table.to_pandas()
+            result_df["sector"] = result_df["mission"].str.extract(r"Sector (\d+)", expand=False).astype("Int64")
 
-            if len(selected_data) > 0:
-                lightcurve = download_with_retries(selected_data)
+            target_df = result_df[result_df["sector"].isin(selected_sectors)]
+
+            filtered_result = lk.SearchResult([
+                res for res in search_result
+                if any(
+                    res.table["mission"] == row["mission"] and res.table["t_min"] == row["t_min"]
+                    for _, row in target_df.iterrows()
+                )
+            ])
+
+            if len(filtered_result) > 0:
+                downloaded = download_with_retries(filtered_result)
+
+                # ✅ Safely handle all download cases
+                if isinstance(downloaded, list):
+                    valid_curves = [lc for lc in downloaded if hasattr(lc, "flux")]
+                    if not valid_curves:
+                        raise ValueError("⚠️ No valid light curves were downloaded.")
+                    lightcurve = LightCurveCollection(valid_curves).stitch()
+                elif hasattr(downloaded, "stitch"):
+                    lightcurve = downloaded.stitch()
+                elif hasattr(downloaded, "flux"):
+                    lightcurve = downloaded
+                else:
+                    raise ValueError("⚠️ Unsupported light curve format received.")
 
                 fig, ax = plt.subplots()
                 lightcurve.plot(ax=ax, linewidth=0, marker='.', color='midnightblue', alpha=0.5)

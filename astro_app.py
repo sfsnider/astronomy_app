@@ -6,12 +6,13 @@ st.set_page_config(page_title="Astro App", layout="wide")
 st.header("🔭 Astro App")
 
 col1, col2 = st.columns([1, 4])
+col3, col4 = st.columns([1, 4])
 
 
 with col1:
     st.subheader("Set TIC ID")
     TIC = st.text_input("TIC ID", "TIC 470710327")
-    secNum = st.number_input("Sector Number", min_value=1, max_value=99, step=1)
+    
 
 with col2:
     # 🔎 Show all-sector metadata
@@ -36,6 +37,11 @@ with col2:
         except Exception as e:
             st.error(f"❌ Error fetching all-sector data: {e}")
 
+
+with col3:
+    secNum = st.number_input("Sector Number", min_value=1, max_value=99, step=1)
+
+with col4:
     # 📈 Sector-specific plot
     with st.container():
         st.subheader("📈 Light Curve Plot")
